@@ -9,12 +9,14 @@ namespace MeshExtensions.Editor
 {
     public class MeshInfoWindow : EditorWindow
     {
-        [MenuItem("Window/Mesh Extensions/Mesh Info", false, 0)]
+        [MenuItem("Tools/Mesh Info", false, 0)]
         public static void ShowWindow()
         {
             MeshInfoWindow window = GetWindow<MeshInfoWindow>();
             window.Show();
         }
+
+        public Material _material;
 
         protected Mesh _mesh;
         protected TableView _tableView;
@@ -29,7 +31,7 @@ namespace MeshExtensions.Editor
         private void OnEnable()
         {
             titleContent = new GUIContent("Mesh Info", EditorGUIUtility.IconContent("MainStageView").image);
-            EditorApplication.searchChanged += Changed;
+            EditorApplication.searchChanged += Changed; //查找的时候的change
             
             _mesh = null;
             _tableView = null;
@@ -61,10 +63,15 @@ namespace MeshExtensions.Editor
                 EditorGUILayout.LabelField($"Select mesh to display information.");
                 return;
             }
-            
             ShowSplit();
             ShowTableView();
+            ShowMaterialInput();
+            ShowMeshInput();
             ShowMeshView();
+
+
+
+
 
             GUI.enabled = false;
 
@@ -78,10 +85,8 @@ namespace MeshExtensions.Editor
 
         private void Changed()
         {
-            if (Selection.objects?.Length != 1 || !(Selection.activeObject is Mesh mesh))
+            if (!(Selection.activeObject is Mesh mesh))
             {
-                _mesh = null;
-                _tableView = null;
             }
             else if (mesh != _mesh)
             {
@@ -90,16 +95,20 @@ namespace MeshExtensions.Editor
                 CreateMeshView();
                 CreateTable();
             }
-            
             Repaint();
+        }
+
+        private void updateMeshView(){
+            _meshView.updateShadeMaterial(_material);
         }
 
         private void ShowMeshView()
         {
             if (_meshView != null)
             {
-                Rect r = new Rect(0, 0, position.width, position.height - (position.height - _splitHeight + 20.0f));
+                Rect r = new Rect(0, 40, position.width, position.height - (position.height - _splitHeight + 60.0f));
                 _meshView.OnPreviewGUI(r, GUIStyle.none);
+
                 r = new Rect(0, _splitHeight - 20.0f, position.width, 20.0f);
                 _meshView.OnPreviewSettings(r);
             }
@@ -114,6 +123,20 @@ namespace MeshExtensions.Editor
             }
         }
         
+        private void ShowMaterialInput()
+        {
+            Rect r = new Rect(0, 0, position.width, 20);
+            _material = (Material)EditorGUILayout.ObjectField("Material", _material, typeof(Material), false);  
+        }
+
+        private void ShowMeshInput()
+        {
+            Rect r = new Rect(0, 0, position.width, 20);
+            _mesh = (Mesh)EditorGUILayout.ObjectField("Mesh", _mesh, typeof(Mesh), false);    
+        }
+
+
+
         private void ShowSplit()
         {
             Rect rect = new Rect(0.0f, _splitHeight, position.width, 4.0f);
@@ -162,7 +185,7 @@ namespace MeshExtensions.Editor
 
         private void CreateMeshView()
         {
-            _meshView = new MeshView(_mesh);
+            _meshView = new MeshView(_mesh, _material);
         }
 
         private object[] CreateRow(int idx, VertexAttributeDescriptor[] attributes)

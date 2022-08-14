@@ -10,16 +10,17 @@ namespace MeshExtensions.Editor
 {
     public class MeshView : IDisposable
     {
+        //一些提示框和栏杆条
         public static class Styles
         {
             public static readonly GUIContent wireframeToggle = EditorGUIUtility.TrTextContent("Wireframe", "Show wireframe");
             public static GUIContent displayModeDropdown = EditorGUIUtility.TrTextContent("", "Change display mode");
             public static GUIContent uvChannelDropdown = EditorGUIUtility.TrTextContent("", "Change active UV channel");
-
             public static GUIStyle preSlider = "preSlider";
             public static GUIStyle preSliderThumb = "preSliderThumb";
         }
 
+        //基本参数
         public class Settings : IDisposable
         {
             public HandleMode HandleMode
@@ -61,8 +62,10 @@ namespace MeshExtensions.Editor
             public bool[] availableUVChannels = Enumerable.Repeat(true, 8).ToArray();
             public bool[] availableHandleModes = Enumerable.Repeat(true, 4).ToArray();
 
+            //设置默认材质 和启动其他参数
             public Settings()
             {
+
                 shadedPreviewMaterial = new Material(Shader.Find("Standard"));
                 wireMaterial = CreateWireframeMaterial();
                 meshMultiPreviewMaterial = CreateMeshMultiPreviewMaterial();
@@ -89,34 +92,54 @@ namespace MeshExtensions.Editor
             }
         }
         
+
+        //都是一些选择项
         public static string[] m_DisplayModes = { "Shaded", "UV Checker", "UV Layout", "Vertex Color", "Normals", "Tangents" };
         public static string[] m_UVChannels = { "UV0", "UV1", "UV2", "UV3", "UV4", "UV5", "UV6", "UV7" };
         public static string[] m_HandleModes = { "Disabled", "Normals", "Tangents", "Binormals" };
+
+        //选择项下面的额序号
         public enum HandleMode { Disabled = 0, Normals = 1, Tangents = 2, Binormals = 3 };
         public enum DisplayMode { Shaded = 0, UVChecker = 1, UVLayout = 2, VertexColor = 3, Normals = 4, Tangent = 5 }
         
+
         protected Mesh _mesh = default;
         protected PreviewRenderUtility _preview = default;
         protected Settings _settings;
         
-        public MeshView(Mesh mesh)
+        //初始化
+        public MeshView(Mesh mesh, Material inputMaterial)
         {
             _mesh = mesh;
-
             _preview = new PreviewRenderUtility();
             _preview.camera.fieldOfView = 30.0f;
             _preview.camera.transform.position = new Vector3(5, 5, 0);
             
             _settings = new Settings();
+            _settings.shadedPreviewMaterial = inputMaterial;
             CheckAvailableAttributes();
         }
+
+        public void updateShadeMaterial(Material inputMaterial){
+            if (inputMaterial == null)
+            {
+                _settings.shadedPreviewMaterial = new Material(Shader.Find("Standard"));
+            }
+            else
+            {
+                _settings.shadedPreviewMaterial = inputMaterial;
+            }
+            SetDisplayMode(_settings.HandleMode);
+        }
+
         
         public void Dispose()
         {
             _preview.Cleanup();
             _settings.Dispose();
         }
-        
+
+        #region 设置材质
         private static Material CreateWireframeMaterial()
         {
             var shader = Shader.Find("Hidden/MeshExtension/Internal-Colored");
@@ -162,7 +185,9 @@ namespace MeshExtensions.Editor
             mat.SetFloat("_ZWrite", 0.0f);
             return mat;
         }
-        
+        #endregion
+
+        //重新设置view
         private void ResetView()
         {
             _settings.zoomFactor = 1.0f;
@@ -175,6 +200,7 @@ namespace MeshExtensions.Editor
             _settings.meshMultiPreviewMaterial.SetTexture("_MainTex", null);
         }
         
+        
         private void FrameObject()
         {
             _settings.zoomFactor = 1.0f;
@@ -182,6 +208,7 @@ namespace MeshExtensions.Editor
             _settings.pivotPositionOffset = Vector3.zero;
         }
         
+        //判断attribute是否可以使用 
         private void CheckAvailableAttributes()
         {
             if (!_mesh.HasVertexAttribute(VertexAttribute.Color))
@@ -200,6 +227,9 @@ namespace MeshExtensions.Editor
             }
         }
         
+
+        #region 下拉框
+        //下拉框
         private void DoPopup(Rect popupRect, string[] elements, int selectedIndex, GenericMenu.MenuFunction2 func, bool[] disabledItems)
         {
             GenericMenu menu = new GenericMenu();
@@ -217,6 +247,7 @@ namespace MeshExtensions.Editor
             menu.DropDown(popupRect);
         }
         
+        //下拉框
         private void SetUVChannel(object data)
         {
             int popupIndex = (int)data;
@@ -229,8 +260,10 @@ namespace MeshExtensions.Editor
                 _settings.activeMaterial.SetFloat("_UVChannel", (float)popupIndex);
         }
         
+
         private void SetDisplayMode(object data)
         {
+
             int popupIndex = (int)data;
             if (popupIndex < 0 || popupIndex >= m_DisplayModes.Length)
                 return;
@@ -270,7 +303,9 @@ namespace MeshExtensions.Editor
 
             _settings.HandleMode = (HandleMode)popupIndex;
         }
-        
+        #endregion
+
+        #region  rednerMesh
         public static void RenderMeshPreview(Mesh mesh, PreviewRenderUtility preview, Settings settings, int meshSubset)
         {
             if (mesh == null || preview == null)
@@ -282,7 +317,7 @@ namespace MeshExtensions.Editor
             preview.camera.nearClipPlane = 0.0001f;
             preview.camera.farClipPlane = 1000f;
 
-            if (settings.displayMode == DisplayMode.UVLayout)
+            if (settings.displayMode == DisplayMode.UVLayout) //相机切换
             {
                 preview.camera.orthographic = true;
                 preview.camera.orthographicSize = settings.zoomFactor;
@@ -312,6 +347,7 @@ namespace MeshExtensions.Editor
             RenderMeshPreviewSkipCameraAndLighting(mesh, bounds, preview, settings, null, meshSubset);
         }
         
+        //显示贴图面板
         private static void DrawUVLayout(Mesh mesh, PreviewRenderUtility preview, Settings settings)
         {
             GL.PushMatrix();
@@ -363,6 +399,7 @@ namespace MeshExtensions.Editor
             return Color.HSVToRGB(hue, sat, val);
         }
         
+        
         public static void RenderMeshPreviewSkipCameraAndLighting(Mesh mesh, Bounds bounds, PreviewRenderUtility preview, Settings settings, MaterialPropertyBlock customProperties, int meshSubset)
         {
             if (mesh == null || preview == null)
@@ -384,6 +421,8 @@ namespace MeshExtensions.Editor
                 colorPropID = Shader.PropertyToID("_Color");
             }
 
+
+            //drawmesh
             if (settings.activeMaterial != null)
             {
                 preview.camera.clearFlags = CameraClearFlags.Nothing;
@@ -401,6 +440,7 @@ namespace MeshExtensions.Editor
                 preview.Render();
             }
 
+            //drawmesh
             if (settings.wireMaterial != null && settings.DrawWire)
             {
                 preview.camera.clearFlags = CameraClearFlags.Nothing;
@@ -483,28 +523,29 @@ namespace MeshExtensions.Editor
             }
         }
 
-        private static Vector3 SetVectorMatrix(Matrix4x4 mat)
-        {
-            var pos = new Vector3(mat.m03, mat.m13, mat.m23);
-            var scale = mat.lossyScale;
+        #endregion
+        // private static Vector3 SetVectorMatrix(Matrix4x4 mat)
+        // {
+        //     var pos = new Vector3(mat.m03, mat.m13, mat.m23);
+        //     var scale = mat.lossyScale;
             
-            var invScale = new Vector3(1.0f / scale.x, 1.0f / scale.y, 1.0f / scale.z);
-            mat.m00 *= invScale.x; mat.m10 *= invScale.x; mat.m20 *= invScale.x;
-            mat.m01 *= invScale.y; mat.m11 *= invScale.y; mat.m21 *= invScale.y;
-            mat.m02 *= invScale.z; mat.m12 *= invScale.z; mat.m22 *= invScale.z;
+        //     var invScale = new Vector3(1.0f / scale.x, 1.0f / scale.y, 1.0f / scale.z);
+        //     mat.m00 *= invScale.x; mat.m10 *= invScale.x; mat.m20 *= invScale.x;
+        //     mat.m01 *= invScale.y; mat.m11 *= invScale.y; mat.m21 *= invScale.y;
+        //     mat.m02 *= invScale.z; mat.m12 *= invScale.z; mat.m22 *= invScale.z;
             
-            var rot = mat.rotation;
-            return pos;
-        }
+        //     var rot = mat.rotation;
+        //     return pos;
+        // }
         
-        public Texture2D RenderStaticPreview(int width, int height)
-        {
-            if (!ShaderUtil.hardwareSupportsRectRenderTexture)
-                return null;
-            _preview.BeginStaticPreview(new Rect(0, 0, width, height));
-            RenderMeshPreview(_mesh, _preview, _settings, -1);
-            return _preview.EndStaticPreview();
-        }
+        // public Texture2D RenderStaticPreview(int width, int height)
+        // {
+        //     if (!ShaderUtil.hardwareSupportsRectRenderTexture)
+        //         return null;
+        //     _preview.BeginStaticPreview(new Rect(0, 0, width, height));
+        //     RenderMeshPreview(_mesh, _preview, _settings, -1);
+        //     return _preview.EndStaticPreview();
+        // }
         
         public void OnPreviewGUI(Rect rect, GUIStyle background)
         {
@@ -604,8 +645,7 @@ namespace MeshExtensions.Editor
                 GUIContent channel = new GUIContent("UV " + _settings.activeUVChannel, Styles.uvChannelDropdown.tooltip);
 
                 if (EditorGUI.DropdownButton(channelDropdownRect, channel, FocusType.Passive, EditorStyles.toolbarDropDown))
-                    DoPopup(channelDropdownRect, m_UVChannels,
-                        _settings.activeUVChannel, SetUVChannel, _settings.availableUVChannels);
+                    DoPopup(channelDropdownRect, m_UVChannels,_settings.activeUVChannel, SetUVChannel, _settings.availableUVChannels);
             }
 
             if (_settings.displayMode == DisplayMode.UVChecker)
