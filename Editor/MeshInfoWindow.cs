@@ -4,6 +4,9 @@ using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UObject = UnityEngine.Object;
+using OfficeOpenXml;
+using System.IO;
+using System.Collections.Generic;
 
 namespace MeshExtensions.Editor
 {
@@ -63,12 +66,12 @@ namespace MeshExtensions.Editor
                 EditorGUILayout.LabelField($"Select mesh to display information.");
                 return;
             }
+            exportExcel();
             ShowSplit();
             ShowTableView();
             ShowMaterialInput();
             ShowMeshInput();
             ShowMeshView();
-
 
 
 
@@ -160,6 +163,79 @@ namespace MeshExtensions.Editor
             }
         }
         
+        void exportExcel()
+        {
+            // int buttonHeight = 29;
+            if (GUILayout.Button("Export Excel Data", GUILayout.Height(20)))
+            {
+                string exportPath = EditorUtility.SaveFilePanel("Save SkuInfo File", "", "MeshData-"+".xlsx", "xlsx");
+                if (string.IsNullOrEmpty(exportPath))
+                {
+                    return;
+                }
+                if (File.Exists(exportPath))
+                {
+                    File.Delete(exportPath);
+                }
+
+                using (ExcelPackage package = new ExcelPackage(new FileInfo(exportPath)))
+                {
+                    ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("Sheet1");
+                    worksheet.Column(1).Width = 30;
+                    for (int i = 2; i <= 13; i++)
+                    {
+                        worksheet.Column(i).Width = 13;
+                        worksheet.Column(i).Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
+
+                    }
+
+                    VertexAttributeDescriptor[] attributes = _mesh.GetVertexAttributes();
+                    int vertexCount = _mesh.vertexCount;
+
+                    MultiColumnHeaderState.Column[] columns = CreateColumns(attributes);
+                    MultiColumnHeaderState headerstate = new MultiColumnHeaderState(columns);
+                    MultiColumnHeader header = new MultiColumnHeader(headerstate);
+                    header.canSort = false;
+
+                    int intA = 1;
+                    worksheet.Cells[1, intA].Value = "INX";
+                    intA += 1;
+                    foreach (VertexAttributeDescriptor a in attributes){
+                        for (int i = 0; i < a.dimension; i++)
+                        {
+                            worksheet.Cells[1, intA].Value = a.attribute.ToString();
+                            worksheet.Cells[1, intA].Style.Font.Bold = true;
+                            worksheet.Cells[1, intA].Style.Font.Size = 12;
+                            intA += 1;
+                        }
+                    }
+
+
+                    for (int i = 0; i < vertexCount; i++)
+                    {
+                        object[] properties = CreateRow(i, attributes);
+                        for (int ii = 0; ii < properties.Length; ii++)
+                        {
+                            worksheet.Cells[i + 2, ii + 1].Value = properties[ii];
+                            worksheet.Cells[i + 2, ii + 1].Style.Font.Bold = true;
+                            worksheet.Cells[i + 2, ii + 1].Style.Font.Size = 12;
+                        }
+                    }
+                    
+                    package.Save();
+                    exportPath = exportPath.Replace('/', '\\');
+#if UNITY_ED_WIN
+                    System.Diagnostics.Process p = new System.Diagnostics.Process();
+                    p.StartInfo.FileName = "explorer.exe";
+                    p.StartInfo.Arguments = (@" /select," + exportPath);
+                    p.Start();
+#endif
+                }
+            }
+        }
+
+
+
         private void CreateTable()
         {
             TreeViewState state = new TreeViewState();
@@ -174,12 +250,16 @@ namespace MeshExtensions.Editor
             _tableView = new TableView(state, header);
             _tableView.Reload();
 
-            for (int i = 0; i < vertexCount; i++)
+            bool ifOver = vertexCount > 2001;
+            int maxVertexCount = ifOver ? 2001 : vertexCount;
+            for (int i = 0; i < maxVertexCount; i++) //vertexCount 
             {
                 object[] properties = CreateRow(i, attributes);
                 _tableView.AddElement(properties);
             }
-            
+
+
+
             _tableView.Repaint();
         }
 
